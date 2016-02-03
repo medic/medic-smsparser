@@ -1,12 +1,31 @@
-var utils = require('kujua-sms/utils'),
-    smsparser = require('views/lib/smsparser'),
-    sinon = require('sinon'),
-    definitions = require('../../test-helpers/form_definitions');
+var proxyquire = require('proxyquire').noCallThru();
+var kujua_utils = proxyquire('../../../../packages/kujua-utils/kujua-utils', {
+    'cookies': {}
+});
+var kujua_sms_utils = proxyquire('../../../../packages/kujua-sms/kujua-sms/utils', {
+    'kujua-utils': kujua_utils,
+    'views/lib/objectpath': {}
+});
+var textforms_parser = proxyquire('../../../../packages/kujua-sms/views/lib/textforms_parser', {
+    'kujua-sms/utils': kujua_sms_utils
+});
+var javarosa_parser = proxyquire('../../../../packages/kujua-sms/views/lib/javarosa_parser', {
+    'kujua-sms/utils': kujua_sms_utils
+});
+var smsparser = proxyquire('../../../../packages/kujua-sms/views/lib/smsparser', {
+    'kujua-utils': kujua_utils,
+    'kujua-sms/utils': kujua_sms_utils,
+    './javarosa_parser': javarosa_parser,
+    './textforms_parser': textforms_parser
+});
 
-exports.setUp = function (callback) {
-    utils.info = require('views/lib/appinfo').getAppInfo.call(this);
-    callback();
-};
+var utils = {
+        info: {
+            getForm: function() {}
+        }
+    },
+    sinon = require('sinon'),
+    definitions = require('../../form_definitions');
 
 exports.tearDown = function(callback) {
     if (utils.info.getForm.restore) {
@@ -134,9 +153,9 @@ exports['get form with non ascii name'] = function(test) {
 exports['parse month type'] = function(test) {
     test.expect(1);
 
-    var doc = { message: "1!FOO!10" },
+    var doc = { message: '1!FOO!10' },
         def = {
-            meta: {code: "FOO", label: 'Test Monthly Report'},
+            meta: {code: 'FOO', label: 'Test Monthly Report'},
             fields: {
                 month: {
                     labels: {
@@ -158,7 +177,7 @@ exports['validations is numeric month stays numeric'] = function(test) {
     test.expect(2);
 
     var getForm = sinon.stub(utils.info, 'getForm').returns(definitions.forms.YYYY);
-    var doc = { message: "1!YYYY!foo#2011#11#" },
+    var doc = { message: '1!YYYY!foo#2011#11#' },
         form = smsparser.getFormCode(doc.message),
         def = utils.info.getForm(form),
         data = smsparser.parse(def, doc);
@@ -172,9 +191,9 @@ exports['validations is numeric month stays numeric'] = function(test) {
 exports['form not found'] = function(test) {
     test.expect(1);
     var doc = {
-            "message":"1!X0X0!facility#2011#11#1#2#3#4#5#6#9#8#7#6#5#4",
-            "type":"sms_message",
-            "form":"X0X0"},
+            message:'1!X0X0!facility#2011#11#1#2#3#4#5#6#9#8#7#6#5#4',
+            type:'sms_message',
+            form:'X0X0'},
         def = utils.info.getForm(doc.form),
         data = smsparser.parse(def, doc);
     test.same({}, data);
@@ -186,33 +205,33 @@ exports['wrong field type'] = function(test) {
 
     var getForm = sinon.stub(utils.info, 'getForm').returns(definitions.forms.YYYY);
     var doc = {
-            "message":"1!YYYY!facility#2011#11#yyyyy#zzzz#2#3#4#5#6#9#8#7#6#5#4",
-            "type":"sms_message",
-            "form":"YYYY"},
+            message:'1!YYYY!facility#2011#11#yyyyy#zzzz#2#3#4#5#6#9#8#7#6#5#4',
+            type:'sms_message',
+            form:'YYYY'},
         def = utils.info.getForm(doc.form),
         data = smsparser.parse(def, doc);
 
     test.ok(getForm.alwaysCalledWith('YYYY'));
     test.same(data, {
-        "facility_id": "facility",
-        "year": "2011",
-        "month": "11",
-        "misoprostol_administered": null,
-        "quantity_dispensed": {
-            "la_6x1": null,
-            "la_6x2": 2,
-            "cotrimoxazole": 3,
-            "zinc": 4,
-            "ors": 5,
-            "eye_ointment": 6,
+        facility_id: 'facility',
+        year: '2011',
+        month: '11',
+        misoprostol_administered: null,
+        quantity_dispensed: {
+            la_6x1: null,
+            la_6x2: 2,
+            cotrimoxazole: 3,
+            zinc: 4,
+            ors: 5,
+            eye_ointment: 6,
         },
-        "days_stocked_out": {
-            "la_6x1": 9,
-            "la_6x2": 8,
-            "cotrimoxazole": 7,
-            "zinc": 6,
-            "ors": 5,
-            "eye_ointment": 4
+        days_stocked_out: {
+            la_6x1: 9,
+            la_6x2: 8,
+            cotrimoxazole: 7,
+            zinc: 6,
+            ors: 5,
+            eye_ointment: 4
         }
     });
     test.done();
@@ -223,33 +242,33 @@ exports['missing fields'] = function(test) {
 
     var getForm = sinon.stub(utils.info, 'getForm').returns(definitions.forms.YYYY);
     var doc = {
-            "message":"1!YYYY!facility#2011#11#1#1#2#3",
-            "type":"sms_message",
-            "form":"YYYY"},
+            message:'1!YYYY!facility#2011#11#1#1#2#3',
+            type:'sms_message',
+            form:'YYYY'},
         def = utils.info.getForm(doc.form),
         data = smsparser.parse(def, doc);
 
     test.ok(getForm.alwaysCalledWith('YYYY'));
     test.same(data, {
-        "facility_id": "facility",
-        "year": "2011",
-        "month": "11",
-        "misoprostol_administered": true,
-        "quantity_dispensed": {
-            "la_6x1": 1,
-            "la_6x2": 2,
-            "cotrimoxazole": 3,
-            "zinc": undefined,
-            "ors": undefined,
-            "eye_ointment": undefined,
+        facility_id: 'facility',
+        year: '2011',
+        month: '11',
+        misoprostol_administered: true,
+        quantity_dispensed: {
+            la_6x1: 1,
+            la_6x2: 2,
+            cotrimoxazole: 3,
+            zinc: undefined,
+            ors: undefined,
+            eye_ointment: undefined,
         },
-        "days_stocked_out": {
-            "la_6x1": undefined,
-            "la_6x2": undefined,
-            "cotrimoxazole": undefined,
-            "zinc": undefined,
-            "ors": undefined,
-            "eye_ointment": undefined
+        days_stocked_out: {
+            la_6x1: undefined,
+            la_6x2: undefined,
+            cotrimoxazole: undefined,
+            zinc: undefined,
+            ors: undefined,
+            eye_ointment: undefined
         }
     });
     test.done();
@@ -260,35 +279,35 @@ exports['extra fields'] = function(test) {
 
     var getForm = sinon.stub(utils.info, 'getForm').returns(definitions.forms.YYYY);
     var doc = {
-            "message":"1!YYYY!facility#2011#11#0#1#2#3#1#1#1#1#1#1#1#1#1#1#####77#",
-            "type":"sms_message",
-            "form":"YYYY"},
+            message:'1!YYYY!facility#2011#11#0#1#2#3#1#1#1#1#1#1#1#1#1#1#####77#',
+            type:'sms_message',
+            form:'YYYY'},
         def = utils.info.getForm(doc.form),
         data = smsparser.parse(def, doc);
 
     test.ok(getForm.alwaysCalledWith('YYYY'));
     test.same(data, {
-        "facility_id": "facility",
-        "year": 2011,
-        "month": 11,
-        "misoprostol_administered": false,
-        "quantity_dispensed": {
-            "la_6x1": 1,
-            "la_6x2": 2,
-            "cotrimoxazole": 3,
-            "zinc": 1,
-            "ors": 1,
-            "eye_ointment": 1,
+        facility_id: 'facility',
+        year: 2011,
+        month: 11,
+        misoprostol_administered: false,
+        quantity_dispensed: {
+            la_6x1: 1,
+            la_6x2: 2,
+            cotrimoxazole: 3,
+            zinc: 1,
+            ors: 1,
+            eye_ointment: 1,
         },
-        "days_stocked_out": {
-            "la_6x1": 1,
-            "la_6x2": 1,
-            "cotrimoxazole": 1,
-            "zinc": 1,
-            "ors": 1,
-            "eye_ointment": 1
+        days_stocked_out: {
+            la_6x1: 1,
+            la_6x2: 1,
+            cotrimoxazole: 1,
+            zinc: 1,
+            ors: 1,
+            eye_ointment: 1
         },
-        "_extra_fields": true
+        _extra_fields: true
     });
 
     test.done();
@@ -304,10 +323,10 @@ exports['textforms bang delimited keyval'] = function(test) {
 
     test.ok(getForm.alwaysCalledWith('YYYY'));
     test.same(data, {
-        "facility_id": "foobar",
-        "year": 2012,
-        "quantity_dispensed": {
-            "zinc": 999
+        facility_id: 'foobar',
+        year: 2012,
+        quantity_dispensed: {
+            zinc: 999
         }
     });
 
@@ -324,10 +343,10 @@ exports['textforms dash delimited keyval'] = function(test) {
 
     test.ok(getForm.alwaysCalledWith('YYYY'));
     test.same(data, {
-        "facility_id": "foobar",
-        "year": 2012,
-        "quantity_dispensed": {
-            "zinc": 999
+        facility_id: 'foobar',
+        year: 2012,
+        quantity_dispensed: {
+            zinc: 999
         }
     });
 
@@ -344,11 +363,11 @@ exports['textforms random ordering'] = function(test) {
 
     test.ok(getForm.alwaysCalledWith('YYYY'));
     test.same(data, {
-        "facility_id": "foobar",
-        "year": 2012,
-        "quantity_dispensed": {
-            "cotrimoxazole": 33,
-            "zinc": 999,
+        facility_id: 'foobar',
+        year: 2012,
+        quantity_dispensed: {
+            cotrimoxazole: 33,
+            zinc: 999,
         }
     });
 
@@ -370,8 +389,8 @@ exports['textforms without hash delim'] = function(test) {
 
     test.ok(getForm.alwaysCalledWith('YYYY'));
     test.same(data, {
-        "quantity_dispensed": {
-            "cotrimoxazole": null
+        quantity_dispensed: {
+            cotrimoxazole: null
         }
     });
 
@@ -482,23 +501,23 @@ exports['parse empty list field'] = function(test) {
     test.expect(1);
 
     var sms = {
-        message: "1!0000!1#"
+        message: '1!0000!1#'
     };
 
     var def = {
         fields: {
-            "q1": {
-                type: "integer",
-                list: [[0, "Yes"], [1, "No"]],
+            q1: {
+                type: 'integer',
+                list: [[0, 'Yes'], [1, 'No']],
                 labels: {
-                    short: "question 1"
+                    short: 'question 1'
                 }
             },
-            "q2": {
-                type: "integer",
-                list: [[0, "Yes"], [1, "No"]],
+            q2: {
+                type: 'integer',
+                list: [[0, 'Yes'], [1, 'No']],
                 labels: {
-                    short: "question 2"
+                    short: 'question 2'
                 }
             }
         }
@@ -506,7 +525,7 @@ exports['parse empty list field'] = function(test) {
 
     var data = smsparser.parse(def, sms);
     // q2 should be null. empty string attempted to be parsed as number.
-    test.same(data, {q1: "No", q2: null});
+    test.same(data, {q1: 'No', q2: null});
     test.done();
 };
 
@@ -514,23 +533,23 @@ exports['parse zero value list field'] = function(test) {
     test.expect(1);
 
     var sms = {
-        message: "1!0000!0"
+        message: '1!0000!0'
     };
 
     var def = {
         fields: {
-            "q1": {
-                type: "integer",
-                list: [[0, "Yes"], [1, "No"]],
+            q1: {
+                type: 'integer',
+                list: [[0, 'Yes'], [1, 'No']],
                 labels: {
-                    short: "question 1"
+                    short: 'question 1'
                 }
             }
         }
     };
 
     var data = smsparser.parse(def, sms);
-    test.same(data, {q1: "Yes"});
+    test.same(data, {q1: 'Yes'});
     test.done();
 };
 
@@ -541,17 +560,17 @@ exports['ignore whitespace in list field textforms'] = function(test) {
             code: 'ABCD'
         },
         fields: {
-            "q": {
-                type: "integer",
-                list: [[0, "Yes"], [1, "No"]],
+            q: {
+                type: 'integer',
+                list: [[0, 'Yes'], [1, 'No']],
                 labels: {
-                    tiny: "q"
+                    tiny: 'q'
                 }
             },
-            "name": {
-                type: "string",
+            name: {
+                type: 'string',
                 labels: {
-                    tiny: "name"
+                    tiny: 'name'
                 }
             }
         }
@@ -559,20 +578,20 @@ exports['ignore whitespace in list field textforms'] = function(test) {
 
     var tests = [
         [
-            { message: "\t\nABCD \t \n \t Q \t\n 1 \t\n" },
-            { q: "No" }
+            { message: '\t\nABCD \t \n \t Q \t\n 1 \t\n' },
+            { q: 'No' }
         ],
         [
-            { message: "\t\nABCD \t\n Q \t\n 0 \t\n" },
-            { q: "Yes" }
+            { message: '\t\nABCD \t\n Q \t\n 0 \t\n' },
+            { q: 'Yes' }
         ],
         [
-            { message: "\t\n ABCD\t\n  Q \t\n 0 \t\n# \t\n Name John Smith\n \t" },
-            { q: "Yes", name: "John Smith" }
+            { message: '\t\n ABCD\t\n  Q \t\n 0 \t\n# \t\n Name John Smith\n \t' },
+            { q: 'Yes', name: 'John Smith' }
         ],
         [
-            { message: "\t\nABCD\t \n Q \t\n 1 \t \n# \t\n Name  \t \n John Smith\n \t" },
-            { q: "No", name: "John Smith" }
+            { message: '\t\nABCD\t \n Q \t\n 1 \t \n# \t\n Name  \t \n John Smith\n \t' },
+            { q: 'No', name: 'John Smith' }
         ]
     ];
 
@@ -589,17 +608,17 @@ exports['ignore whitespace in list field muvuku'] = function(test) {
 
     var def = {
         fields: {
-            "q": {
-                type: "integer",
-                list: [[0, "Yes"], [1, "No"]],
+            q: {
+                type: 'integer',
+                list: [[0, 'Yes'], [1, 'No']],
                 labels: {
-                    short: "question 1"
+                    short: 'question 1'
                 }
             },
-            "name": {
-                type: "string",
+            name: {
+                type: 'string',
                 labels: {
-                    short: "Name"
+                    short: 'Name'
                 }
             }
         }
@@ -607,20 +626,20 @@ exports['ignore whitespace in list field muvuku'] = function(test) {
 
     var tests = [
         [
-            { message: "1!0000!\t\n 0 \t\n" },
-            { q: "Yes", name: undefined }
+            { message: '1!0000!\t\n 0 \t\n' },
+            { q: 'Yes', name: undefined }
         ],
         [
-            { message: "1!0000!\t\n 1 \t\n" },
-            { q: "No", name: undefined }
+            { message: '1!0000!\t\n 1 \t\n' },
+            { q: 'No', name: undefined }
         ],
         [
-            { message: "1!0000!\t\n 1 \t\n#\n \t John Smith \n \t" },
-            { q: "No", name: "John Smith" }
+            { message: '1!0000!\t\n 1 \t\n#\n \t John Smith \n \t' },
+            { q: 'No', name: 'John Smith' }
         ],
         [
-            { message: "1!0000!\t\n 1 \t\n#\n \t John \nSmith \n \t" },
-            { q: "No", name: "John \nSmith" }
+            { message: '1!0000!\t\n 1 \t\n#\n \t John \nSmith \n \t' },
+            { q: 'No', name: 'John \nSmith' }
         ]
     ];
 
@@ -637,7 +656,7 @@ exports['parse date field'] = function(test) {
     test.expect(2);
 
     var doc = {
-        message: "1!0000!2012-03-12"
+        message: '1!0000!2012-03-12'
     };
 
     var def = {
@@ -660,7 +679,7 @@ exports['parse date field'] = function(test) {
 
 
     doc = {
-        message: "0000 TDATE 2012-03-12"
+        message: '0000 TDATE 2012-03-12'
     };
 
     data = smsparser.parse(def, doc);
@@ -675,7 +694,7 @@ exports['parse date field yyyz'] = function(test) {
 
     var getForm = sinon.stub(utils.info, 'getForm').returns(definitions.forms.YYYZ);
     var doc = {
-        message: "1!YYYZ!##2012-03-12"
+        message: '1!YYYZ!##2012-03-12'
     };
 
     var def = utils.info.getForm('YYYZ');
@@ -685,7 +704,7 @@ exports['parse date field yyyz'] = function(test) {
     test.same(data, {one:null, two:null, birthdate: 1331510400000});
 
     doc = {
-        message: "YYYZ BIR2012-03-12"
+        message: 'YYYZ BIR2012-03-12'
     };
 
     data = smsparser.parse(def, doc);
@@ -697,7 +716,7 @@ exports['parse date field yyyz'] = function(test) {
 exports['parse boolean field'] = function(test) {
     test.expect(2);
     var doc = {
-        message: "1!0000!1"
+        message: '1!0000!1'
     };
     var def = {
         fields: {
@@ -711,7 +730,7 @@ exports['parse boolean field'] = function(test) {
     test.same(data, {testbool: true});
 
     doc = {
-        message: "1!0000!0"
+        message: '1!0000!0'
     };
     data = smsparser.parse(def, doc);
     test.same(data, {testbool: false});
@@ -724,7 +743,7 @@ exports['parse string field mixed'] = function(test) {
 
     // textforms
     var doc = {
-        message: "0000 foo 16A"
+        message: '0000 foo 16A'
     };
     var def = {
         meta: {
@@ -741,14 +760,14 @@ exports['parse string field mixed'] = function(test) {
         }
     };
     var data = smsparser.parse(def, doc);
-    test.same(data, {foo: "16A"});
+    test.same(data, {foo: '16A'});
 
     // muvuku
     doc = {
-        message: "1!0000!16A"
+        message: '1!0000!16A'
     };
     data = smsparser.parse(def, doc);
-    test.same(data, {foo: "16A"});
+    test.same(data, {foo: '16A'});
 
     test.done();
 };
@@ -758,7 +777,7 @@ exports['parse string field with exlamation mark!'] = function(test) {
 
     // textforms
     var doc = {
-        message: "0000 foo 16A!"
+        message: '0000 foo 16A!'
     };
     var def = {
         meta: {
@@ -775,14 +794,14 @@ exports['parse string field with exlamation mark!'] = function(test) {
         }
     };
     var data = smsparser.parse(def, doc);
-    test.same(data, {foo: "16A!"});
+    test.same(data, {foo: '16A!'});
 
     // muvuku
     doc = {
-        message: "1!0000!16A!"
+        message: '1!0000!16A!'
     };
     data = smsparser.parse(def, doc);
-    test.same(data, {foo: "16A!"});
+    test.same(data, {foo: '16A!'});
 
     test.done();
 };
@@ -792,7 +811,7 @@ exports['parse string field leading zero'] = function(test) {
 
     // textforms
     var doc = {
-        message: "0000 foo 012345"
+        message: '0000 foo 012345'
     };
     var def = {
         meta: {
@@ -809,14 +828,14 @@ exports['parse string field leading zero'] = function(test) {
         }
     };
     var data = smsparser.parse(def, doc);
-    test.same(data, {foo: "012345"});
+    test.same(data, {foo: '012345'});
 
     // muvuku
     doc = {
-        message: "1!0000!012345"
+        message: '1!0000!012345'
     };
     data = smsparser.parse(def, doc);
-    test.same(data, {foo: "012345"});
+    test.same(data, {foo: '012345'});
 
     test.done();
 };
@@ -825,18 +844,17 @@ exports['smsformats unstructured'] = function(test) {
     test.expect(3);
 
     var docs = [
-        { message: "testing one two three." },
-        { message: "HELP ME" },
-        { message: ""} // blank message
+        { message: 'testing one two three.' },
+        { message: 'HELP ME' },
+        { message: ''} // blank message
     ];
 
-    for (var i in docs) {
-        var doc = docs[i],
-            form = smsparser.getFormCode(doc.message),
+    docs.forEach(function(doc) {
+        var form = smsparser.getFormCode(doc.message),
             def = utils.info.getForm(form);
         // assert parsing fails
         test.same({}, smsparser.parse(def, doc));
-    }
+    });
 
     test.done();
 };
@@ -844,17 +862,16 @@ exports['smsformats unstructured'] = function(test) {
 exports['smsformats structured but no form'] = function(test) {
 
     var docs = [
-        {message: "1!0000!1"},
-        {message: "0000 ABC 123-123-123"}
+        {message: '1!0000!1'},
+        {message: '0000 ABC 123-123-123'}
     ];
 
-    for (var i in docs) {
-        var doc = docs[i],
-            form = smsparser.getFormCode(doc.message),
+    docs.forEach(function(doc) {
+        var form = smsparser.getFormCode(doc.message),
             def = utils.info.getForm(form);
         // assert parsing fails
         test.same({}, smsparser.parse(def, doc));
-    }
+    });
 
     test.done();
 };
@@ -868,8 +885,8 @@ exports['smsformats textforms only one field'] = function(test) {
         def = utils.info.getForm(form),
         data = smsparser.parse(def, doc),
         expect = {
-          "quantity_dispensed": {
-            "cotrimoxazole": 33,
+          quantity_dispensed: {
+            cotrimoxazole: 33,
           }
         };
 
@@ -1049,7 +1066,7 @@ exports['valid javarosa message, fields missing'] = function (test) {
     var arr = smsparser.parseArray(def, doc);
     test.same(
         arr,
-        ["12-11-11 15:00", "+15551212", "facility", "2011", "11", "0", undefined, "2", "3", undefined, "5", "6", "9", undefined, "7", "6", undefined, "4"]
+        ['12-11-11 15:00', '+15551212', 'facility', '2011', '11', '0', undefined, '2', '3', undefined, '5', '6', '9', undefined, '7', '6', undefined, '4']
     );
 
     test.done();
@@ -1093,14 +1110,14 @@ exports['valid javarosa message, values contain escaped delimiters'] = function 
     var arr = smsparser.parseArray(def, doc);
     test.same(
         arr,
-        ["12-11-11 15:00", "+15551212", "fa\\cility#2#3", undefined, undefined, undefined, undefined, "2", "3", undefined, undefined, undefined, undefined, undefined, "7", undefined, undefined, undefined]
+        ['12-11-11 15:00', '+15551212', 'fa\\cility#2#3', undefined, undefined, undefined, undefined, '2', '3', undefined, undefined, undefined, undefined, undefined, '7', undefined, undefined, undefined]
     );
 
     test.done();
 };
 
 exports['parse javarosa message with special characters in a value'] = function (test) {
-    var getForm = sinon.stub(utils.info, 'getForm').returns(definitions.forms.YYYY);
+    sinon.stub(utils.info, 'getForm').returns(definitions.forms.YYYY);
     var def = utils.info.getForm('YYYY');
     var doc = {
         sent_timestamp: '12-11-11 15:00',
@@ -1108,31 +1125,31 @@ exports['parse javarosa message with special characters in a value'] = function 
         message: 'J1!YYYY!HFI#!fac*!?ty!#RPY#2015'
     };
     var obj = smsparser.parse(def, doc);
-    test.same(obj.facility_id, "!fac*!?ty!");
+    test.same(obj.facility_id, '!fac*!?ty!');
     test.same(obj.year, 2015);
     test.done();
 };
 
 exports['valid javarosa message with similarly named fields parses right'] = function (test) {
     var getForm = sinon.stub(utils.info, 'getForm').returns({
-        "meta": {
-          "code": "T",
-          "label": "Test"
+        meta: {
+          code: 'T',
+          label: 'Test'
         },
-        "fields": {
-          "problem": {
-            "labels": {
-              "short": "Health Facility Identifier",
-              "tiny": "P"
+        fields: {
+          problem: {
+            labels: {
+              short: 'Health Facility Identifier',
+              tiny: 'P'
             },
-            "type": "string"
+            type: 'string'
           },
-          "meta_problem": {
-            "labels": {
-              "short": "Health Facility Identifier",
-              "tiny": "MetaP"
+          meta_problem: {
+            labels: {
+              short: 'Health Facility Identifier',
+              tiny: 'MetaP'
             },
-            "type": "string"
+            type: 'string'
           }
         }
     });
@@ -1147,14 +1164,14 @@ exports['valid javarosa message with similarly named fields parses right'] = fun
 
     test.ok(getForm.alwaysCalledWith('T'));
     test.same(obj, {
-        problem: "Bar",
-        meta_problem: "foo"
+        problem: 'Bar',
+        meta_problem: 'foo'
     });
 
     var arr = smsparser.parseArray(def, doc);
     test.same(
         arr,
-        ["12-11-11 15:00", "+15551212", "Bar", "foo"]
+        ['12-11-11 15:00', '+15551212', 'Bar', 'foo']
     );
 
     test.done();
@@ -1162,21 +1179,21 @@ exports['valid javarosa message with similarly named fields parses right'] = fun
 
 exports['valid javarosa message with space in label parses right'] = function (test) {
     var getForm = sinon.stub(utils.info, 'getForm').returns({
-        "meta": {
-          "code": "T",
-          "label": "Test"
+        meta: {
+          code: 'T',
+          label: 'Test'
         },
-        "fields": {
-          "problem": {
-            "labels": {
-              "short": "Health Facility Identifier",
-              "tiny": "P"
+        fields: {
+          problem: {
+            labels: {
+              short: 'Health Facility Identifier',
+              tiny: 'P'
             }
           },
-          "meta_problem": {
-            "labels": {
-              "short": "Health Facility Identifier",
-              "tiny": "MetaP"
+          meta_problem: {
+            labels: {
+              short: 'Health Facility Identifier',
+              tiny: 'MetaP'
             }
           }
         }
@@ -1193,14 +1210,14 @@ exports['valid javarosa message with space in label parses right'] = function (t
 
     test.ok(getForm.alwaysCalledWith('T'));
     test.same(obj, {
-        problem: "Bar",
-        meta_problem: "foo"
+        problem: 'Bar',
+        meta_problem: 'foo'
     });
 
     var arr = smsparser.parseArray(def, doc);
     test.same(
         arr,
-        ["12-11-11 15:00", "+15551212", "Bar", "foo"]
+        ['12-11-11 15:00', '+15551212', 'Bar', 'foo']
     );
 
     test.done();
@@ -1229,61 +1246,61 @@ exports['junk example data'] = function (test) {
 
 exports['one field input is parsed correctly'] = function(test) {
     var def = {
-      "meta": {
-         "code": "OFF",
-         "label": {
-            "en": "Disable Notifications",
-            "sw": "Toa"
+      meta: {
+         code: 'OFF',
+         label: {
+            en: 'Disable Notifications',
+            sw: 'Toa'
          }
       },
-      "fields": {
-         "patient_id": {
-            "labels": {
-               "tiny": {
-                 "en": "ID"
+      fields: {
+         patient_id: {
+            labels: {
+               tiny: {
+                 en: 'ID'
                },
-               "description": {
-                 "en": "Patient Identifier"
+               description: {
+                 en: 'Patient Identifier'
                },
-               "short": {
-                 "en": "Patient ID"
+               short: {
+                 en: 'Patient ID'
                }
             },
-            "position": 0,
-            "flags": {
-                "input_digits_only": true
+            position: 0,
+            flags: {
+                input_digits_only: true
             },
-            "length": [
+            length: [
                 5, 5
             ],
-            "type": "string"
+            type: 'string'
          },
-         "reason": {
-            "labels": {
-               "tiny": {
-                 "en": "r",
-                 "sw": "r"
+         reason: {
+            labels: {
+               tiny: {
+                 en: 'r',
+                 sw: 'r'
                },
-               "description": {
-                 "en": "Reason",
-                 "sw": "Reason"
+               description: {
+                 en: 'Reason',
+                 sw: 'Reason'
                },
-               "short": {
-                 "en": "Reason",
-                 "sw": "Reason"
+               short: {
+                 en: 'Reason',
+                 sw: 'Reason'
                }
             },
-            "position": 1,
-            "length": [
+            position: 1,
+            length: [
                 3, 100
             ],
-            "type": "string"
+            type: 'string'
          }
       }
     };
 
     var id = 12345;
-    var doc = { message: "OFF ID " + id, locale: 'en' };
+    var doc = { message: 'OFF ID ' + id, locale: 'en' };
     var data = smsparser.parse(def, doc);
     test.same({ patient_id: id }, data);
     test.done();
@@ -1310,24 +1327,24 @@ exports['non ascii code is accepted'] = function(test) {
 
     // textforms
     var doc = {
-        message: "ग foo 16A"
+        message: 'ग foo 16A'
     };
     var data = smsparser.parse(def, doc);
-    test.same(data, {foo: "16A"});
+    test.same(data, {foo: '16A'});
 
     // compact
-    var doc = {
-        message: "ग 16A"
+    doc = {
+        message: 'ग 16A'
     };
-    var data = smsparser.parse(def, doc);
-    test.same(data, {foo: "16A"});
+    data = smsparser.parse(def, doc);
+    test.same(data, {foo: '16A'});
 
     // muvuku
     doc = {
-        message: "1!ग!16A"
+        message: '1!ग!16A'
     };
     data = smsparser.parse(def, doc);
-    test.same(data, {foo: "16A"});
+    test.same(data, {foo: '16A'});
 
     test.done();
 
@@ -1355,41 +1372,41 @@ exports['support textforms locale on tiny labels'] = function(test) {
 
     // textforms with locale mismatch parses as compact format
     var doc = {
-        message: "R n jane",
+        message: 'R n jane',
         locale: 'sw'
     };
     var data = smsparser.parse(def, doc, doc.locale);
-    test.same(data, {name: "n jane"});
+    test.same(data, {name: 'n jane'});
 
     // textforms with locale match parses correctly
     doc = {
-        message: "R j jane",
+        message: 'R j jane',
         locale: 'sw'
     };
     data = smsparser.parse(def, doc);
-    test.same(data, {name: "jane"});
+    test.same(data, {name: 'jane'});
 
     // same thing but case insensitive check
     doc = {
-        message: "r J jane",
+        message: 'r J jane',
         locale: 'sw'
     };
     data = smsparser.parse(def, doc);
-    test.same(data, {name: "jane"});
+    test.same(data, {name: 'jane'});
 
     // compact parses correctly
     doc = {
-        message: "R jane"
+        message: 'R jane'
     };
     data = smsparser.parse(def, doc);
-    test.same(data, {name: "jane"});
+    test.same(data, {name: 'jane'});
 
     // muvuku parses correctly
     doc = {
-        message: "1!R!jane"
+        message: '1!R!jane'
     };
     data = smsparser.parse(def, doc);
-    test.same(data, {name: "jane"});
+    test.same(data, {name: 'jane'});
 
     test.done();
 
@@ -1413,24 +1430,24 @@ exports['support mixed case field keys'] = function(test) {
 
     // textforms
     var doc = {
-        message: "R n jane",
+        message: 'R n jane',
     };
-    data = smsparser.parse(def, doc);
-    test.same(data, {ooOoo: "jane"});
+    var data = smsparser.parse(def, doc);
+    test.same(data, {ooOoo: 'jane'});
 
     // compact textforms
     doc = {
-        message: "R jane"
+        message: 'R jane'
     };
     data = smsparser.parse(def, doc);
-    test.same(data, {ooOoo: "jane"});
+    test.same(data, {ooOoo: 'jane'});
 
     // muvuku
     doc = {
-        message: "1!R!jane"
+        message: '1!R!jane'
     };
     data = smsparser.parse(def, doc);
-    test.same(data, {ooOoo: "jane"});
+    test.same(data, {ooOoo: 'jane'});
 
     test.done();
 
@@ -1454,24 +1471,24 @@ exports['support uppercase field keys'] = function(test) {
 
     // textforms
     var doc = {
-        message: "R n jane",
+        message: 'R n jane',
     };
-    data = smsparser.parse(def, doc);
-    test.same(data, {OOOOO: "jane"});
+    var data = smsparser.parse(def, doc);
+    test.same(data, {OOOOO: 'jane'});
 
     // compact textforms
     doc = {
-        message: "R jane"
+        message: 'R jane'
     };
     data = smsparser.parse(def, doc);
-    test.same(data, {OOOOO: "jane"});
+    test.same(data, {OOOOO: 'jane'});
 
     // muvuku
     doc = {
-        message: "1!R!jane"
+        message: '1!R!jane'
     };
     data = smsparser.parse(def, doc);
-    test.same(data, {OOOOO: "jane"});
+    test.same(data, {OOOOO: 'jane'});
 
     test.done();
 
@@ -1495,9 +1512,9 @@ exports['support regex chars in form code, parser escapes them'] = function(test
         }
     };
     var doc = {
-        message: ".*.*  n jane"
+        message: '.*.*  n jane'
     };
     var data = smsparser.parse(def, doc);
-    test.same(data, {name: "jane"});
+    test.same(data, {name: 'jane'});
     test.done();
 };

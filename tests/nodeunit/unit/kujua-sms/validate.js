@@ -1,4 +1,11 @@
-var validate = require('kujua-sms/validate');
+var proxyquire = require('proxyquire').noCallThru();
+
+var kujua_utils = proxyquire('../../../../packages/kujua-utils/kujua-utils', {
+    'cookies': {}
+});
+var validate = proxyquire('../../../../packages/kujua-sms/kujua-sms/validate', {
+    'kujua-utils': kujua_utils
+});
 
 /*
  * check that missing fields are logged as errors.
@@ -7,11 +14,11 @@ exports.missing_fields_errors = function(test) {
     test.expect(1);
     var form, form_definition, form_data, errors;
 
-    form = "YYYY";
+    form = 'YYYY';
     form_definition = {
         fields: {
-            "abc": {_key: "abc", labels: "abcabc", required: true},
-            "def": {_key: "def", labels: "defdef", required: true}
+            abc: {_key: 'abc', labels: 'abcabc', required: true},
+            def: {_key: 'def', labels: 'defdef', required: true}
         }
     };
     form_data = {
@@ -29,11 +36,11 @@ exports.missing_fields_errors = function(test) {
  */
 exports.validate_not_required = function(test) {
     test.expect(1);
-    var form, form_definition, form_data, errors;
+    var form_definition, form_data, errors;
     form_definition = {
         fields: {
-            "abc": {_key: "abc", labels: "abcabc", required: true},
-            "def": {_key: "def", labels: "defdef", required: false}
+            abc: {_key: 'abc', labels: 'abcabc', required: true},
+            def: {_key: 'def', labels: 'defdef', required: false}
         }
     };
     form_data = {
@@ -41,7 +48,7 @@ exports.validate_not_required = function(test) {
     };
 
     // not required
-    form_definition.fields["def"].required = false;
+    form_definition.fields.def.required = false;
 
     errors = validate.validate(form_definition, form_data);
     test.same(errors.length, 0);
@@ -58,14 +65,14 @@ exports.nested_fields_missing = function(test) {
     var form_definition, form_data, errors;
     form_definition = {
         fields: {
-            "abc.hij": {
-                _key: "abc.hij",
-                labels: "abcabc",
+            'abc.hij': {
+                _key: 'abc.hij',
+                labels: 'abcabc',
                 required: true
             },
-            "def.hij": {
-                _key: "def.hij",
-                labels: "defdef",
+            'def.hij': {
+                _key: 'def.hij',
+                labels: 'defdef',
                 required: true
             }
         }
@@ -73,9 +80,9 @@ exports.nested_fields_missing = function(test) {
     form_data = {
         abc: { hij: 1 },
         def: { xyz: 3 }
-    }
+    };
     errors = validate.validate(form_definition, form_data);
-    test.same(errors[0], {code: "sys.missing_fields", fields: ["def.hij"]});
+    test.same(errors[0], {code: 'sys.missing_fields', fields: ['def.hij']});
     test.done();
 
 };
@@ -88,14 +95,14 @@ exports.form_data_with_labels = function(test) {
     test.expect(1);
     var form_definition = {
         fields: {
-            "abc.hij": {
-                _key: "abc.hij",
-                labels: "abcabc",
+            'abc.hij': {
+                _key: 'abc.hij',
+                labels: 'abcabc',
                 required: true
             },
-            "def.hij": {
-                _key: "def.hij",
-                labels: "defdef",
+            'def.hij': {
+                _key: 'def.hij',
+                labels: 'defdef',
                 required: true
             }
         }
@@ -108,9 +115,9 @@ exports.form_data_with_labels = function(test) {
         def: {
             hij: [ null, 'defdef' ]
         }
-    }
+    };
     var errors = validate.validate(form_definition, form_data);
-    test.same(errors[0], {code: "sys.missing_fields", fields: ["def.hij"]});
+    test.same(errors[0], {code: 'sys.missing_fields', fields: ['def.hij']});
 
     test.done();
 };
@@ -122,23 +129,23 @@ exports.custom_validations_function = function(test) {
     test.expect(1);
     var def = {
         meta: {
-            code: "FOO"
+            code: 'FOO'
         },
         fields: {
             foo: {
-                _key: "foo",
+                _key: 'foo',
                 required: true
             }
         },
         validations: {
-            check1: "function() { " +
-                    "   if (form_data['foo'] !== '3') { return 'Arg.' } " +
-                    "}"
+            check1: 'function() { ' +
+                    '   if (form_data["foo"] !== "3") { return "Arg." } ' +
+                    '}'
         }
     };
     var data = { foo: 2 },
         errors = validate.validate(def, data);
 
-    test.same(errors[0], {code:"sys.form_invalid_custom", form:"FOO", message:"Arg."});
+    test.same(errors[0], {code:'sys.form_invalid_custom', form:'FOO', message:'Arg.'});
     test.done();
 };
