@@ -1,31 +1,7 @@
-var proxyquire = require('proxyquire').noCallThru();
-var kujua_utils = proxyquire('../../../../packages/kujua-utils/kujua-utils', {
-    'cookies': {}
-});
-var kujua_sms_utils = proxyquire('../../../../packages/kujua-sms/kujua-sms/utils', {
-    'kujua-utils': kujua_utils,
-    'views/lib/objectpath': {}
-});
-var textforms_parser = proxyquire('../../../../packages/kujua-sms/views/lib/textforms_parser', {
-    'kujua-sms/utils': kujua_sms_utils
-});
-var javarosa_parser = proxyquire('../../../../packages/kujua-sms/views/lib/javarosa_parser', {
-    'kujua-sms/utils': kujua_sms_utils
-});
-var smsparser = proxyquire('../../../../packages/kujua-sms/views/lib/smsparser', {
-    'kujua-utils': kujua_utils,
-    'kujua-sms/utils': kujua_sms_utils,
-    './javarosa_parser': javarosa_parser,
-    './textforms_parser': textforms_parser
-});
-
-var utils = {
-        info: {
-            getForm: function() {}
-        }
-    },
-    sinon = require('sinon'),
-    definitions = require('../../form_definitions');
+var sinon = require('sinon'),
+    utils = require('../../lib/utils'),
+    smsparser = require('../../lib/smsparser'),
+    definitions = require('../fixtures/form_definitions');
 
 exports.tearDown = function(callback) {
     if (utils.info.getForm.restore) {
